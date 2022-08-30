@@ -2,16 +2,21 @@
 #include <cmath>    // pow function
 #include <vector>
 #include <random>
+
 using namespace std;
 
-#define ul unsigned int        // positive integer
+#define ul uint32_t       // positive integer
 
-#define rotateleft(x, n) (((x % 256) << (n)) ^ ((x % 256) >> (8 - n))) % 256
-#define rotateright(x, n) (((x % 256) >> (n)) ^ ((x % 256) << (8 - n))) % 256
-#define update(a, b, n) ((rotateleft((a % 256) ^ (b % 256), (n)))) % 256
-#define drandom ((ul)pow(2, 8) * drand48()) // random number between 0 to 255
-#define mod 256
-#define MOD(x) (x % mod) // making the number of 8 bit
+#define BitsInWord 8
+#define mod 256 // pow(2, BitsInWord)
+#define MOD(x) (x % mod) // making the number of BitsInWord bits
+
+
+#define rotateleft(x, n) MOD((MOD(x) << (n)) ^ (MOD(x) >> (BitsInWord - n)))
+#define rotateright(x, n) MOD((MOD(x) >> (n)) ^ (MOD(x) << (BitsInWord - n)))
+#define update(a, b, n) MOD((rotateleft(MOD(a) ^ MOD(b), (n))))
+#define drandom ((ul)mod * drand48()) // random number between 0 to 255
+
 
 // Forward QR ---------------------------
 #define FWQR4(a,b,c,d) \
@@ -423,7 +428,7 @@ void ReSetState(ul* x, ul size)
 {
   for (int i{ 0 }; i < size; ++i)
   {
-    x[i] = 0x0;
+    x[i] = 0;
   }
 }
 
@@ -448,8 +453,18 @@ void SortByBias(vector<double>& PNB_BIAS, vector<ul>& PNB)
     }
   }
   cout << "\n \n The PNBs in descending order of BIAS is as follows 👇🏾" << endl;
+  ul t = 0;
   cout << "{";
-  for (auto const& i : PNB)
-    cout << i << ", ";
-  cout << " }" << endl;
+  for (const int& n : PNB)
+  {
+    t++;
+    if (t == PNB.size()) {
+      cout << n;
+    }
+    else
+    {
+      cout << n << ", ";
+    }
+  }
+  cout << "}\n";
 }
