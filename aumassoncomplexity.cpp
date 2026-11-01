@@ -1,10 +1,10 @@
-// the complexity finding of single bit attack program in the 8 bit Toy-ChaCha-32 cipher
+// the complexity finding of the aumasson attack program in the 8 bit Toy-ChaCha-32 cipher
 // (ID - OD) = ((13,0) - (1,6))
 // 3.5 round attack
 // 2 round distinguisher
 
 // command to execute the prog 👇
-// g++ aumassoncomplexity.cpp && ./a.out
+// make aumassoncomplexity && ./aumassoncomplexity [--seed S] [--keys K]
 
 #include <ctime>     // to use time
 #include <iomanip>   // decimal numbers upto certain places
@@ -16,15 +16,15 @@ int IDword = 13, IDbit = 0; // input difference
 int ODword = 1, ODbit = 6; // output difference
 const ul N = 378, T = 227; // N = number of samples, T = threshold
 
-ul SIG[] = { 15, 14, 13, 12, 11, 10, 9, 8 }; // significant bits
-ul PNB[] = { 7,6,5,4,3,2,1,0, 23, 22, 21, 20, 19, 18, 17, 16,  31, 30, 29, 28, 27, 26, 25, 24 }; // pnbs
+ul SIG[] = { 15, 13, 12, 11, 10, 9, 8, 23, 22, 21, 20, 17, 16, 29, 28, 27 }; // significant bits
+ul PNB[] = { 7, 6, 5, 4, 3, 2, 1, 0, 14, 19, 18, 31, 30, 26, 25, 24 }; // pnbs
 
 int SIG_COUNT = sizeof(SIG) / sizeof(SIG[0]);
 int PNB_COUNT = sizeof(PNB) / sizeof(PNB[0]);
-int totalSig = pow(2, SIG_COUNT); // all possible numbers with significant bits count
-int totalPNB = pow(2, PNB_COUNT); // all possible numbers with non-significant bits count
+ul totalSig = pow(2, SIG_COUNT); // all possible numbers with significant bits count
+ul totalPNB = pow(2, PNB_COUNT); // all possible numbers with non-significant bits count
 
-double sampleKeySize = pow(2, 1); // change accrodingly
+double sampleKeySize = pow(2, 1); // number of random keys averaged over; override with --keys
 
 vector <double>VfirstCompl(0);
 vector <double>VsecondCompl(0);
@@ -34,7 +34,7 @@ vector <double>VtotalTime(0);
 
 double  firstCompl, secondCompl, falseCompl, successCounter{ 0 };
 
-ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16], bacwrdBit, sigGuess, pnbRandom, pnbGuess, WORD, BIT, sampleLoop;
+ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16], bacwrdBit, pnbRandom, pnbGuess, sampleLoop;
 double lastSigGuess;
 // generateKey from significant and pnb part of the key
 void generateKey(ul sig, ul pnb, ul* key)
@@ -72,14 +72,14 @@ void generateKey(ul sig, ul pnb, ul* key)
 // this is done in the og encryption machinery
 void collectKeyStream(ul* masterKey)
 {
-  for (int i{ 0 };i < N;++i) {
+  for (ul i{ 0 };i < N;++i) {
     InitializeIV(zeroState);
     CopyState(DzeroState, zeroState, 16);
     CopyState(storedIV[i], zeroState, 16); // the ivs are stored to use in the attack
     InputDifference(DzeroState, IDword, IDbit);
 
-    ENCRYPTION(zeroState, masterKey, false, 3);
-    ENCRYPTION(DzeroState, masterKey, false, 3);
+    ENCRYPTION(zeroState, masterKey, true, 3);
+    ENCRYPTION(DzeroState, masterKey, true, 3);
 
     CopyState(keyst[i], zeroState, 16);
     CopyState(Dkeyst[i], DzeroState, 16);
@@ -91,7 +91,7 @@ void collectKeyStream(ul* masterKey)
 // function to check threshold check for a guess
 bool checkThresholdCross(ul Guess)
 {
-  ul count = 0.0;
+  ul count = 0;
   for (sampleLoop = 0; sampleLoop < N; ++sampleLoop)
   {
     // randomly select a pnb in each sample and run the state👇🏾
@@ -116,6 +116,9 @@ bool checkThresholdCross(ul Guess)
     SubtractStates(Dz, DstoredIV[sampleLoop]);
 
     // reverse rounds ---------------------------------------------
+    // 3.5 - 3 round
+    BW2HalfEvenRF(z);
+    BW2HalfEvenRF(Dz);
     // 3 - 2 round
     BWRound(z, 3);
     BWRound(Dz, 3);
@@ -140,7 +143,8 @@ void calculateComplexity(ul* masterKey)
   ul falseCounter = 0;
   firstCompl = 0;
   falseCompl = 0;
-  bool correctKeyFlag, thresholdCrossFlag;
+  lastSigGuess = totalSig; // stays so if the correct key is never detected
+  bool correctKeyFlag = false;
   ul guess;
 
   collectKeyStream(masterKey);
@@ -152,14 +156,13 @@ void calculateComplexity(ul* masterKey)
     if (checkThresholdCross(guess))
     {
       firstCompl = guess * N;
-      thresholdCrossFlag = 1;
       pnbGuess = 0;
       secondCompl = 0;
       while (pnbGuess < totalPNB)
       {
         generateKey(guess, pnbGuess, guessKey);
 
-        ENCRYPTION(guesState, guessKey, false, 3);
+        ENCRYPTION(guesState, guessKey, true, 3);
         secondCompl++;
 
         if (AcidTest(guesState, bigZ))
@@ -174,7 +177,7 @@ void calculateComplexity(ul* masterKey)
           VtotalTime.push_back(chrono::duration_cast<chrono::seconds>(end - start).count());
 
           pnbGuess = totalPNB;
-          lastSigGuess = guess;
+          lastSigGuess = guess + 1; // guesses tried, incl. the correct one; avoids 0/0 when guess = 0
           guess = totalSig;
         }
         else
@@ -194,13 +197,16 @@ void calculateComplexity(ul* masterKey)
   VfalseCompl.push_back(falseCompl);
 }
 
-int main()
+int main(int argc, char** argv)
 {
-  srand48(time(NULL));
+  const Options opt = ParseOptions(argc, argv, (long)sampleKeySize);
+  sampleKeySize = (double)opt.keys;
   auto mainStart = chrono::high_resolution_clock::now();
   ul masterKey[8];
-  cout << "Complexity Calculation Started ... \n\n";
-  for (int loop = 0;loop < sampleKeySize;++loop) {
+  cout << "Complexity Calculation Started ...\n";
+  cout << "seed = " << opt.seed << ", keys = " << opt.keys
+       << ", N = " << N << ", T = " << T << "\n\n";
+  for (long loop = 0; loop < opt.keys; ++loop) {
     InitializeKey32(masterKey);
     calculateComplexity(masterKey);
   }

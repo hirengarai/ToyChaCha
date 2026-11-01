@@ -6,7 +6,7 @@
 // 2 round distinguisher
 
 // command to execute the prog 👇
-// g++ multipleidodcomplexity.cpp && ./a.out
+// make multipleidodcomplexity && ./multipleidodcomplexity [--seed S] [--keys K]
 
 #include <ctime>     // to use time
 #include <iomanip>   // decimal numbers upto certain places
@@ -44,7 +44,7 @@ ul totalPNB3 = pow(2, PNB3_COUNT);
 
 ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16], bacwrdBit, sigGuess, pnbRandom, pnbGuess, WORD, BIT, sampleLoop, guesS;
 
-double sampleKeySize = pow(2, 5);  // change accrodingly
+double sampleKeySize = pow(2, 5);  // number of random keys averaged over; override with --keys
 
 vector <double>VfirstCompl(0);
 vector <double>VsecondCompl(0);
@@ -61,7 +61,7 @@ void generateKey(ul sig, ul pnb, ul* key, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG
   ReSetState(key, 8);
 
   // pnb part insertion
-  for (int j = 0; j < PNB_COUNT; ++j)
+  for (ul j = 0; j < PNB_COUNT; ++j)
   {
     word = (PNB[PNB_COUNT - 1 - j] / 8);
     bit = PNB[PNB_COUNT - j - 1] % 8;
@@ -70,7 +70,7 @@ void generateKey(ul sig, ul pnb, ul* key, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG
   }
 
   // significant part insertion
-  for (int j = 0; j < SIG_COUNT; ++j)
+  for (ul j = 0; j < SIG_COUNT; ++j)
   {
     word = (SIG[SIG_COUNT - 1 - j] / 8);
     bit = SIG[SIG_COUNT - 1 - j] % 8;
@@ -90,7 +90,7 @@ void generateKey(ul sig, ul pnb, ul* key, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG
 // this is done in the og encryption machinery
 void collectKeyStream(int IDword, int IDbit, ul* masterKey)
 {
-  for (int i{ 0 };i < N;++i) {
+  for (ul i{ 0 };i < N;++i) {
     InitializeIV(zeroState);
 
     CopyState(DzeroState, zeroState, 16);
@@ -110,7 +110,7 @@ void collectKeyStream(int IDword, int IDbit, ul* masterKey)
 // function to check threshold check for a guess
 bool checkThresholdCross(ul sigGuess, int IDword, int IDbit, int ODword, int ODbit, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG_COUNT)
 {
-  ul count = 0.0;
+  ul count = 0;
   for (sampleLoop = 0; sampleLoop < N; ++sampleLoop)
   {
     // randomly select a pnb in each sample and run the state👇🏾
@@ -216,13 +216,16 @@ void calculateComplexity(ul* masterKey)
 
 
 
-int main()
+int main(int argc, char** argv)
 {
-  srand48(time(NULL));
+  const Options opt = ParseOptions(argc, argv, (long)sampleKeySize);
+  sampleKeySize = (double)opt.keys;
   auto mainStart = chrono::high_resolution_clock::now();
   ul masterKey[8];
-  cout << "Complexity Calculation Started ... \n\n";
-  for (int loop = 0;loop < sampleKeySize;++loop) {
+  cout << "Complexity Calculation Started ...\n";
+  cout << "seed = " << opt.seed << ", keys = " << opt.keys
+       << ", N = " << N << ", T = " << T << "\n\n";
+  for (long loop = 0; loop < opt.keys; ++loop) {
     InitializeKey32(masterKey);
     calculateComplexity(masterKey);
   }

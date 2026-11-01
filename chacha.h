@@ -1,15 +1,22 @@
 #include <iostream> // cin cout
 #include <cmath>    // pow function
+#include <cstdint>  // uint32_t
+#include <cstdlib>  // drand48, srand48, strtoul, exit
+#include <cstring>  // strcmp
+#include <ctime>    // time
 #include <vector>
 #include <random>
 
 using namespace std;
 
-#define ul uint32_t       // positive integer
+using ul = uint32_t;      // positive integer
 
 #define BitsInWord 8
 #define mod 256 // pow(2, BitsInWord)
-#define MOD(x) (x % mod) // making the number of BitsInWord bits
+// The outer parentheses are load bearing. Without them MOD(a + b) expands to
+// a + (b % mod), because % binds tighter than +, and the word is never reduced
+// to BitsInWord bits -- so the state stops matching Eq. 8 of the paper.
+#define MOD(x) ((x) % mod) // making the number of BitsInWord bits
 
 
 #define rotateleft(x, n) MOD((MOD(x) << (n)) ^ (MOD(x) >> (BitsInWord - n)))
@@ -121,18 +128,32 @@ BWQR_3_4(a,b,c,d);
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
 
-ul mtrandom(const int min, const int max)
+// The single engine behind mtrandom() and unitrandom(). SeedRun() seeds it and
+// drand48() together, so one --seed value reproduces a whole run exactly.
+std::mt19937& RandomEngine()
 {
   thread_local std::mt19937 engine(std::random_device{}());
+  return engine;
+}
+
+
+void SeedRun(unsigned long seed)
+{
+  RandomEngine().seed((std::mt19937::result_type)seed);
+  srand48((long)seed);
+}
+
+
+ul mtrandom(const int min, const int max)
+{
   std::uniform_int_distribution<int> dist(min, max);
-  return dist(engine);
+  return dist(RandomEngine());
 }
 
 
 double unitrandom() {
-  thread_local std::mt19937 engine(std::random_device{}());
   std::uniform_real_distribution<double> dist(0.0, 1.0);
-  return dist(engine);
+  return dist(RandomEngine());
 }
 
 
@@ -141,7 +162,7 @@ void ShowOnScreen(ul* x, int size)
   int i;
   for (i = 0; i < size; ++i)
   {
-    printf("%2x ", x[i]);
+    printf("%02x ", x[i]);
     if (i > 0 && i % 4 == 3)
       printf("\n");
   }
@@ -157,7 +178,7 @@ bool AcidTest(ul* x, ul* y) {
     if (x[i] != y[i])
     {
       flag = false;
-      continue;
+      break;
     }
   }
   return flag;
@@ -226,7 +247,6 @@ void CopyState(ul* x1, ul* x, int n)
 // fucntion to input difference
 void InputDifference(ul* x, int word, int bit)
 {
-  int i;
   int pattern = 0x1 << bit;
   x[word] = x[word] ^ pattern;
 }
@@ -426,7 +446,7 @@ void ENCRYPTION(ul* x, ul* k, bool flag, int rounds) // flag = true means half r
 // all the values of x are unset
 void ReSetState(ul* x, ul size)
 {
-  for (int i{ 0 }; i < size; ++i)
+  for (ul i{ 0 }; i < size; ++i)
   {
     x[i] = 0;
   }
@@ -435,7 +455,7 @@ void ReSetState(ul* x, ul size)
 void SortByBias(vector<double>& PNB_BIAS, vector<ul>& PNB)
 {
   int flag;
-  for (int l = PNB.size(); l >= 0; --l)
+  for (int l = (int)PNB.size() - 1; l >= 0; --l)
   {
     flag = 0;
     for (int j = 0; j < l; ++j)
@@ -455,7 +475,7 @@ void SortByBias(vector<double>& PNB_BIAS, vector<ul>& PNB)
   cout << "\n \n The PNBs in descending order of BIAS is as follows 👇🏾" << endl;
   ul t = 0;
   cout << "{";
-  for (const int& n : PNB)
+  for (const ul& n : PNB)
   {
     t++;
     if (t == PNB.size()) {
@@ -467,4 +487,36 @@ void SortByBias(vector<double>& PNB_BIAS, vector<ul>& PNB)
     }
   }
   cout << "}\n";
+}
+
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+// Command line options, so a published run can be repeated without editing and
+// recompiling the source.
+//   --seed S   fix the seed of every random draw   (default: the clock)
+//   --keys K   how many random keys to average over (complexity programs only)
+struct Options
+{
+  unsigned long seed;
+  long keys;
+};
+
+
+Options ParseOptions(int argc, char** argv, long defaultKeys)
+{
+  Options opt{ (unsigned long)time(NULL), defaultKeys };
+  for (int i = 1; i < argc; ++i)
+  {
+    if (strcmp(argv[i], "--seed") == 0 && i + 1 < argc)
+      opt.seed = strtoul(argv[++i], NULL, 10);
+    else if (strcmp(argv[i], "--keys") == 0 && i + 1 < argc)
+      opt.keys = strtol(argv[++i], NULL, 10);
+    else
+    {
+      cerr << "usage: " << argv[0] << " [--seed S] [--keys K]\n";
+      exit(EXIT_FAILURE);
+    }
+  }
+  SeedRun(opt.seed);
+  return opt;
 }

@@ -1,0 +1,14 @@
+# built by the Makefile
+aumassonattack
+aumassoncomplexity
+chosenivattack
+chosenivcomplexity
+singleidodattack
+singleidodcomplexity
+multipleidodattack
+multipleidodcomplexity
+sagemath
+a.out
+
+# macOS
+.DS_Store

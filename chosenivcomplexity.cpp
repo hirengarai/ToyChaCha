@@ -4,7 +4,7 @@
 // 2 round distinguisher
 
 // command to execute the prog 👇
-// g++ chosenivattack.cpp && ./a.out
+// make chosenivcomplexity && ./chosenivcomplexity [--seed S] [--keys K]
 
 #include <ctime>     // to use time
 #include <iomanip>   // decimal numbers upto certain places
@@ -27,11 +27,11 @@ int SIG_COUNT = sizeof(SIG) / sizeof(SIG[0]);
 int PNB_COUNT = sizeof(PNB) / sizeof(PNB[0]);
 
 
-int totalIDsig = pow(2, ID_SIG_COUNT);
-int totalSig = pow(2, SIG_COUNT);
-int totalPNB = pow(2, PNB_COUNT);
+ul totalIDsig = pow(2, ID_SIG_COUNT);
+ul totalSig = pow(2, SIG_COUNT);
+ul totalPNB = pow(2, PNB_COUNT);
 
-double sampleKeySize = pow(2, 1); // change accrodingly
+double sampleKeySize = pow(2, 1); // number of random keys averaged over; override with --keys
 
 vector <double>VfirstCompl(0);
 vector <double>VsecondCompl(0);
@@ -42,7 +42,7 @@ vector <double>VtotalTime(0);
 double  firstCompl, secondCompl, falseCompl, successCounter{ 0 };
 
 
-ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bacwrdBit, sigPart, pnbRandom, pnbGuess, WORD, BIT, sampleLoop, compare[16], bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16];
+ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bacwrdBit, pnbRandom, pnbGuess, sampleLoop, bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16];
 int IV[256];
 double totalGuess;
 // key_generation from significant and pnb
@@ -84,10 +84,10 @@ void generateKey(ul idsig, ul sig, ul pnb, ul* key)
   }
 }
 
-void findIV(int* IV, int IVsize) {
+void findIV(int* IV, ul IVsize) {
   ul x[16], Dx[16], k[8], keyCounter{ 0 }, IVcounter;
 
-  for (int i{ 0 }; i < IVsize;++i) {
+  for (ul i{ 0 }; i < IVsize;++i) {
     IV[i] = -1;
   }
   while (keyCounter <= totalIDsig - 1) {
@@ -118,7 +118,7 @@ void findIV(int* IV, int IVsize) {
 void collectKeyStream(ul* masterKey, ul IDguess, int* IV)
 {
 
-  for (int i{ 0 };i < N;++i) {
+  for (ul i{ 0 };i < N;++i) {
     InitializeIV(zeroState);
     zeroState[IDword] = IV[IDguess];
     CopyState(DzeroState, zeroState, 16);
@@ -137,7 +137,7 @@ void collectKeyStream(ul* masterKey, ul IDguess, int* IV)
 
 bool checkThresholdCross(ul IDguess, ul Siguess)
 {
-  ul count = 0.0;
+  ul count = 0;
   for (sampleLoop = 0; sampleLoop < N; ++sampleLoop)
   {
     // randomise pnb each times 👇🏾
@@ -186,7 +186,8 @@ void calculateComplexity(ul* masterKey, int* IV)
   ul falseCounter = 0;
   firstCompl = 0;
   falseCompl = 0;
-  bool correctKeyFlag, thresholdCrossFlag;
+  totalGuess = 0; // per key, else Pr_fa of later keys is divided by every earlier key's guesses
+  bool correctKeyFlag = false;
 
   ul IDguess, Siguess;
 
@@ -201,8 +202,7 @@ void calculateComplexity(ul* masterKey, int* IV)
       totalGuess++;
       if (checkThresholdCross(IDguess, Siguess))
       {
-        firstCompl = IDguess* Siguess * N;
-        thresholdCrossFlag = 1;
+        firstCompl = totalGuess * N; // guesses actually tested; strong IDs are skipped
         pnbGuess = 0;
         secondCompl = 0;
         while (pnbGuess < totalPNB)
@@ -245,15 +245,18 @@ void calculateComplexity(ul* masterKey, int* IV)
 
 
 
-int main()
+int main(int argc, char** argv)
 {
-  srand48(time(NULL));
+  const Options opt = ParseOptions(argc, argv, (long)sampleKeySize);
+  sampleKeySize = (double)opt.keys;
   auto mainStart = chrono::high_resolution_clock::now();
   ul masterKey[8];
-  cout << "Complexity Calculation Started ... \n\n";
+  cout << "Complexity Calculation Started ...\n";
+  cout << "seed = " << opt.seed << ", keys = " << opt.keys
+       << ", N = " << N << ", T = " << T << "\n\n";
   findIV(IV,totalIDsig);
 
-  for (int loop = 0;loop < sampleKeySize;++loop) {
+  for (long loop = 0; loop < opt.keys; ++loop) {
     ul id, sig, pnb;
     ReSetState(masterKey, 8);
     bool tempflag = false;

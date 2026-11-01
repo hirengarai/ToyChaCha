@@ -6,7 +6,7 @@
 // 2 round distinguisher
 
 // command to execute the prog 👇
-// g++ multipleidodattack.cpp && ./a.out
+// make multipleidodattack && ./multipleidodattack [--seed S]
 
 #include <ctime>     // to use time
 #include <iomanip>   // decimal numbers upto certain places
@@ -60,7 +60,7 @@ void generateKey(ul sig, ul pnb, ul* key, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG
   ReSetState(key, 8);
 
   // pnb part insertion
-  for (int j = 0; j < PNB_COUNT; ++j)
+  for (ul j = 0; j < PNB_COUNT; ++j)
   {
     word = (PNB[PNB_COUNT - 1 - j] / 8);
     bit = PNB[PNB_COUNT - j - 1] % 8;
@@ -69,7 +69,7 @@ void generateKey(ul sig, ul pnb, ul* key, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG
   }
 
   // significant part insertion
-  for (int j = 0; j < SIG_COUNT; ++j)
+  for (ul j = 0; j < SIG_COUNT; ++j)
   {
     word = (SIG[SIG_COUNT - 1 - j] / 8);
     bit = SIG[SIG_COUNT - 1 - j] % 8;
@@ -89,7 +89,7 @@ void generateKey(ul sig, ul pnb, ul* key, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG
 // this is done in the og encryption machinery
 void collectKeyStream(int IDword, int IDbit, ul* masterKey)
 {
-  for (int i{ 0 };i < N;++i) {
+  for (ul i{ 0 };i < N;++i) {
     InitializeIV(zeroState);
 
     CopyState(DzeroState, zeroState, 16);
@@ -109,7 +109,7 @@ void collectKeyStream(int IDword, int IDbit, ul* masterKey)
 // function to check threshold check for a guess
 bool checkThresholdCross(ul sigGuess, int IDword, int IDbit, int ODword, int ODbit, ul* PNB, ul PNB_COUNT, ul* SIG, ul SIG_COUNT)
 {
-  ul count = 0.0;
+  ul count = 0;
   for (sampleLoop = 0; sampleLoop < N; ++sampleLoop)
   {
     // randomly select a pnb in each sample and run the state👇🏾
@@ -205,12 +205,13 @@ void recoverKey(ul* masterKey)
 
 
 
-int main()
+int main(int argc, char** argv)
 {
-  srand48(time(NULL));
+  const Options opt = ParseOptions(argc, argv, 1);
   auto start = chrono::high_resolution_clock::now();
   ul masterKey[8];
   InitializeKey32(masterKey);
+  cout << "seed = " << opt.seed << ", N = " << N << ", T = " << T << "\n";
   cout << "The OG Master key is \n";
   ShowOnScreen(masterKey, 8);
   recoverKey(masterKey);

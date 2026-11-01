@@ -4,7 +4,7 @@
 // 2 round distinguisher
 
 // command to execute the prog 👇
-// g++ singleidodcomplexity.cpp && ./a.out
+// make singleidodcomplexity && ./singleidodcomplexity [--seed S] [--keys K]
 
 #include <ctime>     // to use time
 #include <iomanip>   // decimal numbers upto certain places
@@ -21,10 +21,10 @@ ul PNB[] = { 7,6,5,4,3,2,1,0, 23, 22, 21, 20, 19, 18, 17, 16,  31, 30, 29, 28, 2
 
 int SIG_COUNT = sizeof(SIG) / sizeof(SIG[0]);
 int PNB_COUNT = sizeof(PNB) / sizeof(PNB[0]);
-int totalSig = pow(2, SIG_COUNT); // all possible numbers with significant bits count
-int totalPNB = pow(2, PNB_COUNT); // all possible numbers with non-significant bits count
+ul totalSig = pow(2, SIG_COUNT); // all possible numbers with significant bits count
+ul totalPNB = pow(2, PNB_COUNT); // all possible numbers with non-significant bits count
 
-double sampleKeySize = pow(2, 10); // change accrodingly
+double sampleKeySize = pow(2, 10); // number of random keys averaged over; override with --keys
 
 vector <double>VfirstCompl(0);
 vector <double>VsecondCompl(0);
@@ -32,7 +32,7 @@ vector <double>VtotalTime(0);
 
 double  firstCompl, secondCompl;
 
-ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16], bacwrdBit, sigGuess, pnbRandom, pnbGuess, WORD, BIT, sampleLoop;
+ul guessKey[8], zeroState[16], DzeroState[16], guesState[16], z[16], Dz[16], DiffState[16], bigZ[16], storedGuesState[16], storedIV[N][16], DstoredIV[N][16], keyst[N][16], Dkeyst[N][16], bacwrdBit, pnbRandom, pnbGuess, sampleLoop;
 
 // generateKey from significant and pnb part of the key
 void generateKey(ul sig, ul pnb, ul* key)
@@ -70,7 +70,7 @@ void generateKey(ul sig, ul pnb, ul* key)
 // this is done in the og encryption machinery
 void collectKeyStream(ul* masterKey)
 {
-  for (int i{ 0 };i < N;++i) {
+  for (ul i{ 0 };i < N;++i) {
     InitializeIV(zeroState);
     CopyState(DzeroState, zeroState, 16);
     CopyState(storedIV[i], zeroState, 16); // the ivs are stored to use in the attack
@@ -89,7 +89,7 @@ void collectKeyStream(ul* masterKey)
 // function to check threshold check for a guess
 bool checkThresholdCross(ul Guess)
 {
-  ul count = 0.0;
+  ul count = 0;
   for (sampleLoop = 0; sampleLoop < N; ++sampleLoop)
   {
     // randomly select a pnb in each sample and run the state👇🏾
@@ -177,13 +177,16 @@ void calculateComplexity(ul* masterKey)
   }
 }
 
-int main()
+int main(int argc, char** argv)
 {
-  srand48(time(NULL));
+  const Options opt = ParseOptions(argc, argv, (long)sampleKeySize);
+  sampleKeySize = (double)opt.keys;
   auto mainStart = chrono::high_resolution_clock::now();
   ul masterKey[8];
-  cout << "Complexity Calculation Started ... \n\n";
-  for (int loop = 0;loop < sampleKeySize;++loop) {
+  cout << "Complexity Calculation Started ...\n";
+  cout << "seed = " << opt.seed << ", keys = " << opt.keys
+       << ", N = " << N << ", T = " << T << "\n\n";
+  for (long loop = 0; loop < opt.keys; ++loop) {
     InitializeKey32(masterKey);
     calculateComplexity(masterKey);
   }
